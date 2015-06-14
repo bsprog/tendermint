@@ -78,7 +78,7 @@ func RandGenesisState(numAccounts int, randBalance bool, minBalance uint64, numV
 		accounts[i] = GenesisAccount{
 			Address:     account.Address,
 			Amount:      account.Balance,
-			Permissions: ptypes.NewDefaultAccountPermissions(),
+			Permissions: ptypes.NewDefaultAccountPermissionsString(),
 		}
 		privAccounts[i] = privAccount
 	}
@@ -105,7 +105,7 @@ func RandGenesisState(numAccounts int, randBalance bool, minBalance uint64, numV
 		Accounts:    accounts,
 		Validators:  validators,
 		Params: &GenesisParams{
-			GlobalPermissions: ptypes.NewDefaultAccountPermissions(),
+			GlobalPermissions: ptypes.NewDefaultAccountPermissionsString(),
 		},
 	})
 	s0.Save()

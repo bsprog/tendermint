@@ -34,6 +34,28 @@ const (
 	AllSet             PermFlag = (1 << 63) - 1 + (1 << 63)
 )
 
+func ResolveBasePermission(perm string) (pf PermFlag, err error) {
+	switch perm {
+	case "root":
+		pf = Root
+	case "send":
+		pf = Send
+	case "call":
+		pf = Call
+	case "create_contract":
+		pf = CreateContract
+	case "create_account":
+		pf = CreateAccount
+	case "bond":
+		pf = Bond
+	case "name":
+		pf = Name
+	default:
+		err = fmt.Errorf("Unknown permission %s", perm)
+	}
+	return
+}
+
 //---------------------------------------------------------------------------------------------
 
 // Base chain permissions struct
@@ -172,4 +194,33 @@ func NewDefaultAccountPermissions() *AccountPermissions {
 		},
 		Roles: []string{},
 	}
+}
+
+func NewDefaultAccountPermissionsString() map[string]int {
+	return map[string]int{
+		"send":            1,
+		"call":            1,
+		"create_contract": 1,
+		"create_account":  1,
+		"bond":            1,
+		"name":            1,
+	}
+}
+
+func AccountPermissionsFromStrings(perms map[string]int, roles []string) (*AccountPermissions, error) {
+	base := NewBasePermissions()
+	for permString, v := range perms {
+		permFlag, err := ResolveBasePermission(permString)
+		if err != nil {
+			return nil, err
+		}
+		base.Set(permFlag, v == 1)
+	}
+
+	aP := &AccountPermissions{
+		Base:  base,
+		Roles: make([]string, len(roles)),
+	}
+	copy(aP.Roles, roles)
+	return aP, nil
 }

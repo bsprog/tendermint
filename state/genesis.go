@@ -1,6 +1,7 @@
 package state
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"time"
 
@@ -14,9 +15,10 @@ import (
 )
 
 type GenesisAccount struct {
-	Address     []byte                     `json:"address"`
-	Amount      uint64                     `json:"amount"`
-	Permissions *ptypes.AccountPermissions `json:"global_permissions"` // pointer so optional
+	Address     []byte         `json:"address"`
+	Amount      uint64         `json:"amount"`
+	Permissions map[string]int `json:"permissions"`
+	Roles       []string       `json:"roles"`
 }
 
 type GenesisValidator struct {
@@ -27,7 +29,7 @@ type GenesisValidator struct {
 
 type GenesisParams struct {
 	// Default permissions for newly created accounts
-	GlobalPermissions *ptypes.AccountPermissions `json:"global_permissions"`
+	GlobalPermissions map[string]int `json:"global_permissions"`
 
 	// TODO: other params we may want to tweak?
 }
@@ -41,8 +43,9 @@ type GenesisDoc struct {
 }
 
 func GenesisDocFromJSON(jsonBlob []byte) (genState *GenesisDoc) {
-	var err error
-	binary.ReadJSON(&genState, jsonBlob, &err)
+	//var err error
+	//binary.ReadJSON(&genState, jsonBlob, &err)
+	err := json.Unmarshal(jsonBlob, &genState)
 	if err != nil {
 		panic(Fmt("Couldn't read GenesisDoc: %v", err))
 	}
@@ -67,12 +70,17 @@ func MakeGenesisState(db dbm.DB, genDoc *GenesisDoc) *State {
 		genDoc.GenesisTime = time.Now()
 	}
 
+	var err error
+
 	// Make accounts state tree
 	accounts := merkle.NewIAVLTree(binary.BasicCodec, account.AccountCodec, defaultAccountsCacheCapacity, db)
 	for _, genAcc := range genDoc.Accounts {
 		perm := ptypes.NewDefaultAccountPermissions()
 		if genAcc.Permissions != nil {
-			perm = genAcc.Permissions
+			perm, err = ptypes.AccountPermissionsFromStrings(genAcc.Permissions, genAcc.Roles)
+			if err != nil {
+				Exit(err.Error())
+			}
 		}
 		acc := &account.Account{
 			Address:     genAcc.Address,
@@ -88,7 +96,10 @@ func MakeGenesisState(db dbm.DB, genDoc *GenesisDoc) *State {
 	// so they are included in the accounts tree
 	globalPerms := ptypes.NewDefaultAccountPermissions()
 	if genDoc.Params != nil && genDoc.Params.GlobalPermissions != nil {
-		globalPerms = genDoc.Params.GlobalPermissions
+		globalPerms, err = ptypes.AccountPermissionsFromStrings(genDoc.Params.GlobalPermissions, nil)
+		if err != nil {
+			Exit(err.Error())
+		}
 		// XXX: make sure the set bits are all true
 		// Without it the HasPermission() functions will recurse till death
 		globalPerms.Base.SetBit = ptypes.AllSet
